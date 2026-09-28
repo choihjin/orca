@@ -27,8 +27,13 @@ function setKeybindingOverrides(overrides: Record<string, string[]> | undefined)
   )
 }
 
+// Why: the hook binds a window keydown listener; without unmounting, every test's listener stays
+// registered and fires on the next test's keydown, so a later assertion can pass or fail on a
+// stale one.
+let unmountShortcuts: (() => void) | null = null
+
 function renderShortcuts(): void {
-  renderHook(() =>
+  const rendered = renderHook(() =>
     useBrowserPageKeyboardShortcuts({
       browserTabId: 'tab-1',
       isActive: true,
@@ -44,6 +49,7 @@ function renderShortcuts(): void {
       grabIsInteractive: false
     })
   )
+  unmountShortcuts = rendered.unmount
 }
 
 /** Chat transcript prose: a plain paragraph, matching none of the editable-host selectors. */
@@ -81,6 +87,8 @@ describe('useBrowserPageKeyboardShortcuts — grab shortcut vs host text selecti
   })
 
   afterEach(() => {
+    unmountShortcuts?.()
+    unmountShortcuts = null
     window.getSelection()?.removeAllRanges()
     document.body.innerHTML = ''
   })
